@@ -13,7 +13,9 @@ const PORT = process.env.PORT || 5000;
 // Middleware
 app.use(cors({
   origin: [
-    "https://financial-analysis-kpmg.vercel.app"
+    "https://financial-analysis-kpmg.vercel.app",
+    "https://kpmg-financial-analysis-production.up.railway.app",
+    "http://localhost:5173" // Good to keep for local dev
   ]
 }));
 app.use(express.json());
