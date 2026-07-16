@@ -13,7 +13,6 @@ router.post('/analysis', async (req, res) => {
     });
     
     const savedAnalysis = await newAnalysis.save();
-    // Vercel aur SQL compatibility ke liye ID string mein convert kar ke bhej rahe hain
     res.json({ success: true, analysisId: savedAnalysis._id });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -30,28 +29,36 @@ router.post('/save', async (req, res) => {
 
   try {
     // 1. Ensure analysis exists (V1 Mock)
-    // SQL ki ID integer thi, MongoDB mein ye ek valid 24-char hex string (ObjectId) hoti hai
     let analysisExists = null;
-    try {
-      analysisExists = await Analysis.findById(analysisId);
-    } catch (err) {
-      // Agar ID valid format mein nahi hai, to findById throw karega
+    
+    // Check if incoming analysisId is a valid 24-character hex string
+    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(analysisId);
+    
+    if (isValidObjectId) {
+      try {
+        analysisExists = await Analysis.findById(analysisId);
+      } catch (err) {
+        // Find failed
+      }
     }
 
+    // Agar database mein nahi mila ya valid ObjectId nahi thi (jaise numeric ID "1")
     if (!analysisExists) {
-      // Agar direct create karna pare (jaise test ID bhej di ho), to hum manually generate kar lete hain
-      analysisExists = new Analysis({
-        _id: analysisId, // Agar hardcoded numeric ya custom format string aa rahi hai
+      const newAnalysis = new Analysis({
         company_name: 'KPMG Client',
         industry: 'Aviation'
       });
-      await analysisExists.save();
+      analysisExists = await newAnalysis.save();
     }
 
-    // 2. Clear old balance sheet data for this analysis
-    await BalanceSheet.deleteMany({ analysis_id: analysisId });
+    // Hamesha guaranteed valid ObjectId hamare paas hogi
+    const actualAnalysisId = analysisExists._id;
 
-    // 3. Insert new items in bulk (MongoDB mein bulk insert zyaada fast hota hai)
+    // 2. Clear old balance sheet data for this SPECIFIC valid analysis_id only!
+    // Hum invalid "1" ko yahan pass hi nahi karenge taake schema cast error na aaye
+    await BalanceSheet.deleteMany({ analysis_id: actualAnalysisId });
+
+    // 3. Insert new items in bulk
     const itemsToInsert = [];
 
     // Helper to structure category items
@@ -61,7 +68,7 @@ router.post('/save', async (req, res) => {
         years.forEach(year => {
           const value = item.values[year] || 0;
           itemsToInsert.push({
-            analysis_id: analysisId,
+            analysis_id: actualAnalysisId, // Valid database ObjectId binding
             year: year.toString(),
             category: categoryName,
             line_item: item.name,
@@ -77,12 +84,17 @@ router.post('/save', async (req, res) => {
     processCategory('Non-Current Liabilities', data.nonCurrentLiabilities);
     processCategory('Current Liabilities', data.currentLiabilities);
 
-    // Agar data array khali nahi hai to database mein aik sath save karein
+    // Agar data array khali nahi hai to database mein save karein
     if (itemsToInsert.length > 0) {
       await BalanceSheet.insertMany(itemsToInsert);
     }
 
-    res.json({ success: true, message: 'Balance Sheet data saved successfully.' });
+    // Response mein frontend ko batana zaroori hai ke naya database ID actualAnalysisId hai
+    res.json({ 
+      success: true, 
+      message: 'Balance Sheet data saved successfully.', 
+      analysisId: actualAnalysisId 
+    });
   } catch (error) {
     console.error('Error saving data:', error);
     res.status(500).json({ error: error.message });
