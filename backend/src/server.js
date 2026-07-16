@@ -12,7 +12,7 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors({
-  origin: '*', // Allow all origins — fixes Vercel preview URL rotation
+  origin: 'https://financial-analysis-kpmg.vercel.app/', // Allow all origins — fixes Vercel preview URL rotation
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
@@ -30,6 +30,18 @@ app.use('/api/export', require('./routes/export'));
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'KPMG Financial Analysis API is running.' });
 });
+
+app.get("/", (req, res) => {
+  res.status(200).json({
+    status: "OK",
+    message: "KPMG Financial Analysis Backend Running"
+  });
+});
+
+app.get("/health", (req, res) => {
+  res.send("OK");
+});
+
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
