@@ -1,61 +1,23 @@
-const Database = require('better-sqlite3');
-const path = require('path');
+const mongoose = require('mongoose');
 
-const dbPath = path.resolve(__dirname, '../../database.sqlite');
-const db = new Database(dbPath, { verbose: console.log });
+const initDb = async () => {
+  try {
+    const connString = process.env.MONGODB_URI;
+    if (!connString) {
+      throw new Error("MONGODB_URI is not defined in environment variables");
+    }
+    
+    await mongoose.connect(connString);
+    console.log('MongoDB Connected Successfully...');
+  } catch (error) {
+    console.error('MongoDB connection error:', error.message);
+    process.exit(1);
+  }
+};
 
-function initDb() {
-  // Create analyses table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS analyses (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      company_name TEXT,
-      industry TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  // Create balance_sheet_data table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS balance_sheet_data (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      analysis_id INTEGER,
-      year TEXT,
-      category TEXT,
-      line_item TEXT,
-      value REAL,
-      FOREIGN KEY (analysis_id) REFERENCES analyses(id)
-    )
-  `);
-
-  // Create income_statement_data table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS income_statement_data (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      analysis_id INTEGER,
-      year TEXT,
-      category TEXT,
-      line_item TEXT,
-      value REAL,
-      FOREIGN KEY (analysis_id) REFERENCES analyses(id)
-    )
-  `);
-
-  // Create cash_flow_statement_data table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS cash_flow_statement_data (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      analysis_id INTEGER,
-      year TEXT,
-      category TEXT,
-      line_item TEXT,
-      value REAL,
-      FOREIGN KEY (analysis_id) REFERENCES analyses(id)
-    )
-  `);
-  
-  console.log('Database initialized.');
-}
+// SQLite compatibility ke liye empty object export kar rahe hain
+// taake jo files "const { db } = require(...)" karti hain wo crash na hon
+const db = {}; 
 
 module.exports = {
   db,

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const { db } = require('../db/database');
+const Analysis = require('../../models/Analysis');
+const CashFlow = require('../../models/CashFlow');
 
 // Save cash flow statement data
 router.post('/save', async (req, res) => {
@@ -11,38 +12,55 @@ router.post('/save', async (req, res) => {
   }
 
   try {
-    const saveToDb = db.transaction((cfData) => {
-      const analysisExists = db.prepare('SELECT id FROM analyses WHERE id = ?').get(analysisId);
-      if (!analysisExists) {
-        db.prepare('INSERT INTO analyses (id, company_name, industry) VALUES (?, ?, ?)').run(analysisId, 'KPMG Client', 'Aviation');
-      }
+    // 1. Ensure analysis exists (V1 Mock)
+    let analysisExists = null;
+    try {
+      analysisExists = await Analysis.findById(analysisId);
+    } catch (err) {
+      // Catch error if format is invalid
+    }
 
-      const deleteStmt = db.prepare('DELETE FROM cash_flow_statement_data WHERE analysis_id = ?');
-      deleteStmt.run(analysisId);
+    if (!analysisExists) {
+      analysisExists = new Analysis({
+        _id: analysisId,
+        company_name: 'KPMG Client',
+        industry: 'Aviation'
+      });
+      await analysisExists.save();
+    }
 
-      const insertStmt = db.prepare(`
-        INSERT INTO cash_flow_statement_data (analysis_id, year, category, line_item, value) 
-        VALUES (?, ?, ?, ?, ?)
-      `);
+    // 2. Clear old cash flow data for this analysis
+    await CashFlow.deleteMany({ analysis_id: analysisId });
 
-      const insertCategory = (categoryName, items) => {
-        if (!items) return;
-        items.forEach(item => {
-          years.forEach(year => {
-            const value = item.values[year] || 0;
-            insertStmt.run(analysisId, year.toString(), categoryName, item.name, value);
+    // 3. Insert new items in bulk
+    const itemsToInsert = [];
+
+    // Helper to structure category items
+    const processCategory = (categoryName, items) => {
+      if (!items) return;
+      items.forEach(item => {
+        years.forEach(year => {
+          const value = item.values[year] || 0;
+          itemsToInsert.push({
+            analysis_id: analysisId,
+            year: year.toString(),
+            category: categoryName,
+            line_item: item.name,
+            value: value
           });
         });
-      };
+      });
+    };
 
-      insertCategory('Operating Activities', cfData.operatingActivities);
-      insertCategory('Investing Activities', cfData.investingActivities);
-      insertCategory('Financing Activities', cfData.financingActivities);
-      // FIXED: Spelled with "and" instead of "&" to match Excel Service headings and UI
-      insertCategory('Cash and Cash Equivalents', cfData.cashAndCashEquivalents);
-    });
+    processCategory('Operating Activities', data.operatingActivities);
+    processCategory('Investing Activities', data.investingActivities);
+    processCategory('Financing Activities', data.financingActivities);
+    processCategory('Cash and Cash Equivalents', data.cashAndCashEquivalents);
 
-    saveToDb(data);
+    // Agar data array khali nahi hai to save karein
+    if (itemsToInsert.length > 0) {
+      await CashFlow.insertMany(itemsToInsert);
+    }
 
     res.json({ success: true, message: 'Cash Flow Statement data saved successfully.' });
   } catch (error) {
