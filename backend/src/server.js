@@ -1,5 +1,4 @@
 const express = require('express');
-const cors = require('cors');
 require('dotenv').config();
 
 const balanceSheetRoutes = require('./routes/balanceSheet');
@@ -10,37 +9,40 @@ const { initDb } = require('./db/database');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Clean FRONTEND_URL to remove trailing slash if exists
-let frontendUrl = process.env.FRONTEND_URL;
-if (frontendUrl && frontendUrl.endsWith('/')) {
-  frontendUrl = frontendUrl.slice(0, -1);
-}
+// Raw Custom CORS Middleware (Bypassing npm cors package for Vercel Serverless)
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  
+  // Clean FRONTEND_URL to remove trailing slash if exists
+  let frontendUrl = process.env.FRONTEND_URL;
+  if (frontendUrl && frontendUrl.endsWith('/')) {
+    frontendUrl = frontendUrl.slice(0, -1);
+  }
 
-const allowedOrigins = [
-  frontendUrl,
-  'http://localhost:3000',
-  'http://localhost:5173'
-].filter(Boolean);
+  const allowedOrigins = [
+    frontendUrl,
+    'http://localhost:3000',
+    'http://localhost:5173'
+  ].filter(Boolean);
 
-app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps, postman, or curl)
-    if (!origin) return callback(null, true);
-    
-    // Check if the origin is in our allowed list or is a Vercel preview deployment
-    const isAllowed = allowedOrigins.includes(origin) || origin.endsWith('.vercel.app');
-    
-    if (isAllowed) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true,
-  optionsSuccessStatus: 200 // Legacy browsers ke liye pre-flight requests handle karne ke liye
-}));
+  // Check if incoming origin is allowed or is a Vercel deployment
+  if (origin && (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app'))) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else if (!origin) {
+    // Fallback for requests without origin (like direct server hits/postman)
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+  
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Date, X-Api-Version');
+
+  // OPTIONS (Preflight) request ko furan 200 OK de kar response complete karein
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
 
 app.use(express.json());
 
