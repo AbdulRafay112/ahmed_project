@@ -163,7 +163,7 @@ const IncomeStatementWizard = ({ config, setConfig }) => {
     setIsSaving(true);
     setNotification('');
     try {
-      const response = await fetch('http://localhost:5000/api/income-statement/save', {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/income-statement/save`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ analysisId: 1, years: config.years, data: { ...data, totals } })
@@ -195,7 +195,7 @@ const IncomeStatementWizard = ({ config, setConfig }) => {
         isData: { ...data, totals }
       };
 
-      const response = await fetch('http://localhost:5000/api/export', {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/export`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

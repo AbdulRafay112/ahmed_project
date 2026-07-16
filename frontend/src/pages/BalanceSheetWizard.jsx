@@ -201,7 +201,7 @@ const BalanceSheetWizard = ({ config, setConfig }) => {
     setIsSaving(true);
     setNotification('');
     try {
-      const response = await fetch('http://localhost:5000/api/balance-sheet/save', {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/balance-sheet/save`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

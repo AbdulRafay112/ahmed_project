@@ -168,7 +168,7 @@ const CashFlowStatementWizard = ({ config, setConfig }) => {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const response = await fetch('http://localhost:5000/api/cash-flow/save', {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/cash-flow/save`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ analysisId: 1, years: config.years, data: { ...data, totals } })
@@ -203,7 +203,7 @@ const CashFlowStatementWizard = ({ config, setConfig }) => {
         cfData: { ...data, totals }
       };
 
-      const response = await fetch('http://localhost:5000/api/export', {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/export`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
