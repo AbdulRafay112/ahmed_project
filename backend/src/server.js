@@ -10,9 +10,14 @@ const { initDb } = require('./db/database');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Dynamic CORS configuration for local development and Vercel preview URLs
+// Clean FRONTEND_URL to remove trailing slash if exists
+let frontendUrl = process.env.FRONTEND_URL;
+if (frontendUrl && frontendUrl.endsWith('/')) {
+  frontendUrl = frontendUrl.slice(0, -1);
+}
+
 const allowedOrigins = [
-  process.env.FRONTEND_URL,
+  frontendUrl,
   'http://localhost:3000',
   'http://localhost:5173'
 ].filter(Boolean);
@@ -23,7 +28,7 @@ app.use(cors({
     if (!origin) return callback(null, true);
     
     // Check if the origin is in our allowed list or is a Vercel preview deployment
-    const isAllowed = allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.vercel.app');
+    const isAllowed = allowedOrigins.includes(origin) || origin.endsWith('.vercel.app');
     
     if (isAllowed) {
       callback(null, true);
@@ -33,7 +38,8 @@ app.use(cors({
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  credentials: true,
+  optionsSuccessStatus: 200 // Legacy browsers ke liye pre-flight requests handle karne ke liye
 }));
 
 app.use(express.json());
