@@ -76,28 +76,39 @@ const IncomeStatementWizard = ({ config, setConfig }) => {
 
       const revenue = sumSection(data.revenue);
       newTotals.totalCostOfServices[year] = sumSection(data.costOfServices);
-      newTotals.grossProfit[year] = revenue + newTotals.totalCostOfServices[year];
+      
+      // FIXED: Cost of services subtracts from revenue (Gross Profit = Revenue - Cost of Services)
+      newTotals.grossProfit[year] = revenue - newTotals.totalCostOfServices[year];
 
       newTotals.totalOperatingExpenses[year] = sumSection(data.operatingExpenses);
-      newTotals.profitFromOperations[year] = newTotals.grossProfit[year] + newTotals.totalOperatingExpenses[year];
+      
+      // FIXED: Operating expenses subtract from Gross Profit (Profit From Operations = Gross Profit - Operating Expenses)
+      newTotals.profitFromOperations[year] = newTotals.grossProfit[year] - newTotals.totalOperatingExpenses[year];
 
       const exchange = sumSection(data.exchangeGainLoss);
       newTotals.profitBeforeInterestTax[year] = newTotals.profitFromOperations[year] + exchange;
 
       const finance = sumSection(data.financeCosts);
-      newTotals.profitBeforeLevyTax[year] = newTotals.profitBeforeInterestTax[year] + finance;
+      
+      // FIXED: Finance costs subtract from profit
+      newTotals.profitBeforeLevyTax[year] = newTotals.profitBeforeInterestTax[year] - finance;
 
       const levy = sumSection(data.levyAndTaxation);
-      newTotals.netProfit[year] = newTotals.profitBeforeLevyTax[year] + levy;
+      
+      // FIXED: Taxes and Levies subtract to reach Net Profit
+      newTotals.netProfit[year] = newTotals.profitBeforeLevyTax[year] - levy;
     });
 
     setTotals(newTotals);
     localStorage.setItem('kpmgIncomeStatementData', JSON.stringify({ ...data, totals: newTotals }));
 
     // Dashboard Sync for Revenue and Net Profit
+    // FIXED: Optional chaining (?.) added to prevent crash if data.revenue is undefined or empty
+    const revenueValues = data?.revenue?.[0]?.values || {};
+
     setConfig(prev => ({
       ...prev,
-      revenue: data.revenue[0].values, // revenue values obj
+      revenue: revenueValues,
       netProfit: newTotals.netProfit
     }));
 
@@ -262,7 +273,7 @@ const IncomeStatementWizard = ({ config, setConfig }) => {
                 <td style={isGrandTotal ? { fontWeight: 'bold', fontSize: '14px', color: 'var(--color-primary)' } : {}}>{totalLabel}</td>
                 {config.years.map(year => (
                   <td key={year} style={isGrandTotal ? { fontWeight: 'bold' } : {}}>
-                    {formatAccounting(totals[totalKey][year])}
+                    {formatAccounting(totals[totalKey]?.[year])}
                   </td>
                 ))}
               </tr>
@@ -361,8 +372,8 @@ const IncomeStatementWizard = ({ config, setConfig }) => {
           </button>
         ) : (
           <div style={{ display: 'flex', gap: '12px' }}>
-            <button className="btn-primary nav-btn save-btn" onClick={() => {
-              handleSave();
+            <button className="btn-primary nav-btn save-btn" onClick={async () => {
+              await handleSave();
               navigate('/dashboard/cash-flow-statement');
             }}>
               Next: Cash Flow Statement <ChevronRight size={16} />
@@ -370,8 +381,6 @@ const IncomeStatementWizard = ({ config, setConfig }) => {
           </div>
         )}
       </div>
-
-
     </div>
   );
 };

@@ -38,7 +38,8 @@ router.post('/save', async (req, res) => {
       insertCategory('Operating Activities', cfData.operatingActivities);
       insertCategory('Investing Activities', cfData.investingActivities);
       insertCategory('Financing Activities', cfData.financingActivities);
-      insertCategory('Cash & Cash Equivalents', cfData.cashAndCashEquivalents);
+      // FIXED: Spelled with "and" instead of "&" to match Excel Service headings and UI
+      insertCategory('Cash and Cash Equivalents', cfData.cashAndCashEquivalents);
     });
 
     saveToDb(data);

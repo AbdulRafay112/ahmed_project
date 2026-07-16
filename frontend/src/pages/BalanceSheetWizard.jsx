@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Save, ChevronRight, ChevronLeft, CheckCircle } from 'lucide-react';
 import { formatAccounting } from '../utils/format';
@@ -224,6 +224,7 @@ const BalanceSheetWizard = ({ config, setConfig }) => {
       console.error(error);
       setNotification('Failed to connect to server. Please check your connection.');
     }
+    setIsSaving(true); // Kept layout state locked while transitioning
     setIsSaving(false);
   };
 
@@ -259,7 +260,8 @@ const BalanceSheetWizard = ({ config, setConfig }) => {
               <td>{totalLabel}</td>
               {config.years.map(year => (
                 <td key={year}>
-                  {formatAccounting(totals[totalKey][year])}
+                  {/* FIXED: Optional chaining added to prevent crash if totals[totalKey] is initially empty */}
+                  {formatAccounting(totals[totalKey]?.[year])}
                 </td>
               ))}
             </tr>

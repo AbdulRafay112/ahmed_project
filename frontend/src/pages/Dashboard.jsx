@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import KPICard from '../components/KPICard';
 import './Dashboard.css';
@@ -14,6 +14,17 @@ const Dashboard = ({ config, setConfig }) => {
     config.years && config.years.length > 0 ? config.years[config.years.length - 1] : null
   );
 
+  // FIXED: Sync activeYear when config.years dynamically loads or updates
+  useEffect(() => {
+    if (config.years && config.years.length > 0) {
+      if (!activeYear || !config.years.includes(activeYear)) {
+        setActiveYear(config.years[config.years.length - 1]);
+      }
+    } else {
+      setActiveYear(null);
+    }
+  }, [config.years]);
+
   const handleStartAnalysisClick = () => {
     if (config.years && config.years.length > 0) {
       setModalState('options');
@@ -21,15 +32,16 @@ const Dashboard = ({ config, setConfig }) => {
       setModalState('newAnalysis');
     }
   };
+
   const handleStartNewAnalysis = () => {
     let numYears = parseInt(selectedYearsOption);
     if (selectedYearsOption === 'custom') {
       numYears = parseInt(customYears);
     }
     
-    // Generate array of years ending in current year (e.g. 2025)
+    // FIXED: Dynamically generate years based on current date (instead of hardcoded 2025)
     const currentYear = new Date().getFullYear();
-    const endYear = 2025;
+    const endYear = currentYear - 1; // Standard practice: previous complete financial year as base
     const yearsArr = [];
     for (let i = endYear - numYears + 1; i <= endYear; i++) {
       yearsArr.push(i);
@@ -38,7 +50,10 @@ const Dashboard = ({ config, setConfig }) => {
     setConfig(prev => ({
       ...prev,
       years: yearsArr,
-      totalAssets: {} // Reset data on new analysis
+      totalAssets: {}, // Reset old data on new analysis
+      revenue: {},
+      netProfit: {},
+      freeCashFlow: {}
     }));
     
     setModalState('none');
@@ -80,11 +95,12 @@ const Dashboard = ({ config, setConfig }) => {
   };
 
   const getKPIData = (year) => {
+    if (!year) return { totalAssets: 'No Data', revenue: 'No Data', netProfit: 'No Data', freeCashFlow: 'No Data' };
     return {
-      totalAssets: config.totalAssets ? config.totalAssets[year] : 'No Data',
-      revenue: config.revenue ? config.revenue[year] : 'No Data',
-      netProfit: config.netProfit ? config.netProfit[year] : 'No Data',
-      freeCashFlow: config.freeCashFlow ? config.freeCashFlow[year] : 'No Data'
+      totalAssets: config.totalAssets && config.totalAssets[year] !== undefined ? config.totalAssets[year] : 'No Data',
+      revenue: config.revenue && config.revenue[year] !== undefined ? config.revenue[year] : 'No Data',
+      netProfit: config.netProfit && config.netProfit[year] !== undefined ? config.netProfit[year] : 'No Data',
+      freeCashFlow: config.freeCashFlow && config.freeCashFlow[year] !== undefined ? config.freeCashFlow[year] : 'No Data'
     };
   };
 
