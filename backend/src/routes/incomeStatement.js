@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const Analysis = require('../../models/Analysis');
 const IncomeStatement = require('../../models/IncomeStatement');
 
@@ -12,17 +13,20 @@ router.post('/save', async (req, res) => {
   }
 
   try {
-    // 1. Ensure analysis exists (V1 Mock)
+    // 1. Ensure analysis exists with valid ID check
     let analysisExists = null;
-    try {
-      analysisExists = await Analysis.findById(analysisId);
-    } catch (err) {
-      // Catch error if format is invalid
+    const isValidObjectId = mongoose.Types.ObjectId.isValid(analysisId);
+
+    if (isValidObjectId) {
+      try {
+        analysisExists = await Analysis.findById(analysisId);
+      } catch (err) {
+        // Catch invalid format errors quietly
+      }
     }
 
     if (!analysisExists) {
       analysisExists = new Analysis({
-        _id: analysisId,
         company_name: 'KPMG Client',
         industry: 'Aviation'
       });
@@ -30,7 +34,7 @@ router.post('/save', async (req, res) => {
     }
 
     // 2. Clear old income statement data for this analysis
-    await IncomeStatement.deleteMany({ analysis_id: analysisId });
+    await IncomeStatement.deleteMany({ analysis_id: analysisExists._id });
 
     // 3. Insert new items in bulk
     const itemsToInsert = [];
@@ -42,7 +46,7 @@ router.post('/save', async (req, res) => {
         years.forEach(year => {
           const value = item.values[year] || 0;
           itemsToInsert.push({
-            analysis_id: analysisId,
+            analysis_id: analysisExists._id, // Using the verified valid database ID
             year: year.toString(),
             category: categoryName,
             line_item: item.name,
