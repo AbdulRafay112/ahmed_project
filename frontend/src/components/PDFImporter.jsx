@@ -80,6 +80,10 @@ const PDFImporter = ({ availableYears, onImportComplete }) => {
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('balanceSheet');
   const [importSuccessStats, setImportSuccessStats] = useState(null);
+  const [showPossibleSelection, setShowPossibleSelection] = useState(false);
+  const [selectedPossible, setSelectedPossible] = useState({
+    balanceSheet: {}, incomeStatement: {}, cashFlowStatement: {}
+  });
   
   
   const fileInputRef = useRef(null);
