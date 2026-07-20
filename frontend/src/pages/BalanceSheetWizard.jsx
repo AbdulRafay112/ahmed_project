@@ -227,10 +227,21 @@ const BalanceSheetWizard = ({ config, setConfig }) => {
     // Coerce to match the existing keys in item.values.
     const numericYear = parseInt(year, 10) || year;
 
-    // Fix Bug 1: Translate backend canonical names → wizard line item names via BS_FIELD_MAP.
+    // Build translated BS: backend canonical names now match wizard line item names directly.
+    // Direct-match first, then fall back to BS_FIELD_MAP for any legacy key formats.
     const translatedBs = {};
+
+    // 1. Direct pass-through: backend keys already equal wizard lineItem names
+    const allBsNames = Object.values(lineItems).flat();
+    for (const name of allBsNames) {
+      if (mappings.balanceSheet[name] !== undefined) {
+        translatedBs[name] = mappings.balanceSheet[name];
+      }
+    }
+
+    // 2. Fallback: BS_FIELD_MAP for any old-format backend keys (backward compatibility)
     for (const [backendKey, wizardKey] of Object.entries(BS_FIELD_MAP)) {
-      if (mappings.balanceSheet[backendKey] !== undefined) {
+      if (translatedBs[wizardKey] === undefined && mappings.balanceSheet[backendKey] !== undefined) {
         translatedBs[wizardKey] = mappings.balanceSheet[backendKey];
       }
     }
