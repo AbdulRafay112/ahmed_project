@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Save, ChevronRight, ChevronLeft, CheckCircle } from 'lucide-react';
+import { Save, ChevronRight, ChevronLeft, CheckCircle, UploadCloud } from 'lucide-react';
 import { formatAccounting } from '../utils/format';
 import './BalanceSheetWizard.css';
+import PDFImporter from '../components/PDFImporter';
 
 const STEPS = ['Assets', 'Equity', 'Liabilities', 'Review'];
 
@@ -28,12 +29,36 @@ const lineItems = {
   ]
 };
 
+// Maps backend canonical field names → wizard line item names
+const BS_FIELD_MAP = {
+  'Property, Plant and Equipment': 'Property, Plant & Equipment',
+  'Intangible Assets':             'Intangibles',
+  'Long-term Deposits':            'Long-term Deposits',
+  'Stores and Spares':             'Stores & Spares',
+  'Trade Debts':                   'Trade Debts',
+  'Advances, Deposits, Prepayments': 'Advances',
+  'Taxation - Net':                'Taxation – Net',
+  'Cash and Bank Balances':        'Cash & Bank Balances',
+  'Issued, Subscribed and Paid-up Capital': 'Issued, Subscribed & Paid-up Share Capital',
+  'Capital Reserves':              'Reserves (Accumulated Losses)',
+  'Revenue Reserves':              'Reserves (Accumulated Losses)',
+  'Long-term Financing':           'Long-term Financing',
+  'Lease Liabilities':             'Lease Liabilities',
+  'Deferred Liabilities':          'Deferred Liabilities',
+  'Trade and Other Payables':      'Trade & Other Payables',
+  'Accrued Mark-up':               'Accrued Interest',
+  'Short-term Borrowings':         'Short-term Borrowings',
+  'Current Portion of Non-current Liabilities': 'Current Maturity of Non-current Liabilities',
+  'Unclaimed Dividend':            'Unclaimed Dividend – Preference Shares',
+};
+
 const BalanceSheetWizard = ({ config, setConfig }) => {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [notification, setNotification] = useState('');
   const [isDirty, setIsDirty] = useState(false);
+  const [showImporter, setShowImporter] = useState(false);
   
   // Track focus targets when navigating steps via Enter key
   const [focusTarget, setFocusTarget] = useState(null);
@@ -197,6 +222,63 @@ const BalanceSheetWizard = ({ config, setConfig }) => {
     }
   };
 
+  const handleImportComplete = (mappings, year) => {
+    // Fix Bug 2: HTML <select> always returns a string; config.years are numbers.
+    // Coerce to match the existing keys in item.values.
+    const numericYear = parseInt(year, 10) || year;
+
+    // Fix Bug 1: Translate backend canonical names → wizard line item names via BS_FIELD_MAP.
+    const translatedBs = {};
+    for (const [backendKey, wizardKey] of Object.entries(BS_FIELD_MAP)) {
+      if (mappings.balanceSheet[backendKey] !== undefined) {
+        translatedBs[wizardKey] = mappings.balanceSheet[backendKey];
+      }
+    }
+
+    // 1. Update Balance Sheet local state
+    // IMPORTANT: Only iterate known array sections. localStorage saves `totals` inside
+    // kpmgBalanceSheetData, so `prev` may contain a `totals` key. Iterating with
+    // for..in would hit `totals` (an object, not an array) and crash .map(), silently
+    // aborting the entire update. Use the known section keys from lineItems instead.
+    const SECTION_KEYS = Object.keys(lineItems); // ['nonCurrentAssets', 'currentAssets', 'equity', 'nonCurrentLiabilities', 'currentLiabilities']
+
+    setData(prev => {
+      const newData = { ...prev };
+      for (const sectionKey of SECTION_KEYS) {
+        if (!Array.isArray(newData[sectionKey])) continue; // guard
+        newData[sectionKey] = newData[sectionKey].map(item => {
+          if (translatedBs[item.name] !== undefined) {
+            return {
+              ...item,
+              values: {
+                ...item.values,
+                [numericYear]: translatedBs[item.name]
+              }
+            };
+          }
+          return item;
+        });
+      }
+      return newData;
+    });
+
+    setIsDirty(true);
+
+    // 2. Extend Global Config to hydrate IS and CF naturally
+    setConfig(prev => ({
+      ...prev,
+      importedPdfData: {
+        incomeStatement: mappings.incomeStatement,
+        cashFlowStatement: mappings.cashFlowStatement,
+        year: numericYear
+      }
+    }));
+
+    // 3. Immediately close the importer and show a success notification
+    setShowImporter(false);
+    setNotification('PDF data successfully imported into Balance Sheet! Review the values below, then click "Next: Income Statement" to save and continue.');
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     setNotification('');
@@ -279,8 +361,18 @@ const BalanceSheetWizard = ({ config, setConfig }) => {
             <h1 className="page-title">Balance Sheet</h1>
             <p className="page-subtitle">Enter financial statement data</p>
           </div>
-          <div className="unit-indicator badge glass">
-            All amounts are presented in <strong>PKR ('000)</strong>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
+            <div className="unit-indicator badge glass">
+              All amounts are presented in <strong>PKR ('000)</strong>
+            </div>
+            <button 
+              className="btn-secondary" 
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', padding: '8px 16px' }}
+              onClick={() => setShowImporter(!showImporter)}
+            >
+              <UploadCloud size={16} />
+              {showImporter ? 'Hide Importer' : 'Import Annual Report PDF'}
+            </button>
           </div>
         </div>
       </div>
@@ -290,6 +382,13 @@ const BalanceSheetWizard = ({ config, setConfig }) => {
           <CheckCircle size={20} />
           <span>{notification}</span>
         </div>
+      )}
+
+      {showImporter && (
+        <PDFImporter 
+          availableYears={config.years} 
+          onImportComplete={handleImportComplete} 
+        />
       )}
 
       {/* Progress Indicator */}

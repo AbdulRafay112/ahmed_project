@@ -139,6 +139,40 @@ const IncomeStatementWizard = ({ config, setConfig }) => {
     }
   }, [currentStep, focusTarget]);
 
+  // Handle Hydration from PDF Import natively via config
+  useEffect(() => {
+    if (config.importedPdfData?.incomeStatement) {
+      const { incomeStatement: importedIS, year } = config.importedPdfData;
+      
+      setData(prev => {
+        const newData = { ...prev };
+        for (const sectionKey in newData) {
+          if (sectionKey === 'totals') continue;
+          newData[sectionKey] = newData[sectionKey].map(item => {
+            if (importedIS[item.name] !== undefined) {
+              return {
+                ...item,
+                values: { ...item.values, [year]: importedIS[item.name] }
+              };
+            }
+            return item;
+          });
+        }
+        return newData;
+      });
+      setIsDirty(true);
+
+      // Clean up the config flag for IS only, leave CF intact
+      setConfig(prev => ({
+        ...prev,
+        importedPdfData: {
+          ...prev.importedPdfData,
+          incomeStatement: null
+        }
+      }));
+    }
+  }, [config.importedPdfData, setConfig]);
+
   const handleInputChange = (section, index, year, value) => {
     if (value !== '' && !/^-?\d*\.?\d*$/.test(value)) return;
     setIsDirty(true);

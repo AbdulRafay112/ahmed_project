@@ -134,6 +134,40 @@ const CashFlowStatementWizard = ({ config, setConfig }) => {
     }
   }, [currentStep, focusTarget]);
 
+  // Handle Hydration from PDF Import natively via config
+  useEffect(() => {
+    if (config.importedPdfData?.cashFlowStatement) {
+      const { cashFlowStatement: importedCF, year } = config.importedPdfData;
+      
+      setData(prev => {
+        const newData = { ...prev };
+        for (const sectionKey in newData) {
+          if (sectionKey === 'totals') continue;
+          newData[sectionKey] = newData[sectionKey].map(item => {
+            if (importedCF[item.name] !== undefined) {
+              return {
+                ...item,
+                values: { ...item.values, [year]: importedCF[item.name] }
+              };
+            }
+            return item;
+          });
+        }
+        return newData;
+      });
+      setIsDirty(true);
+
+      // Clean up the config flag for CF
+      setConfig(prev => ({
+        ...prev,
+        importedPdfData: {
+          ...prev.importedPdfData,
+          cashFlowStatement: null
+        }
+      }));
+    }
+  }, [config.importedPdfData, setConfig]);
+
   const handleInputChange = (section, index, year, value) => {
     if (value !== '' && !/^-?\d*\.?\d*$/.test(value)) return;
     setIsDirty(true);

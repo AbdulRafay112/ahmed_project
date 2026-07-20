@@ -21,7 +21,8 @@ function App() {
     return {
       industry: null,
       years: [], // e.g. [2021, 2022, 2023, 2024, 2025]
-      totalAssets: {} // mock KPI connected state
+      totalAssets: {}, // mock KPI connected state
+      importedPdfData: null
     };
   });
 
