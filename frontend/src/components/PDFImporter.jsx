@@ -138,76 +138,34 @@ const PDFImporter = ({ availableYears, onImportComplete }) => {
     setIsUploading(false);
   };
 
-  const togglePossible = (stmtKey, fieldName) => {
-    setSelectedPossible(prev => ({
-      ...prev,
-      [stmtKey]: {
-        ...prev[stmtKey],
-        [fieldName]: !prev[stmtKey][fieldName]
-      }
-    }));
-  };
-
-  // Check if any possible matches exist across all statements
-  const hasPossibles = () => {
-    if (!possibleData) return false;
-    return Object.keys(dictionaries).some(stmt => {
-      const pm = possibleData[stmt] || {};
-      return Object.keys(pm).length > 0;
-    });
-  };
-
   const handleConfirm = () => {
     if (!reviewData) return;
-
-    // Phase 1 → Phase 2: If possibles exist and selection UI not yet shown, show it
-    if (hasPossibles() && !showPossibleSelection) {
-      setShowPossibleSelection(true);
-      setActiveTab('balanceSheet');
-      return;
-    }
-
-    // Phase 2 → Final import (or Phase 1 direct import when no possibles)
-    const mergedMappings = {
-      balanceSheet: { ...reviewData.balanceSheet },
-      incomeStatement: { ...reviewData.incomeStatement },
-      cashFlowStatement: { ...reviewData.cashFlowStatement }
-    };
-
+    
     let matchedCount = 0;
-    let possibleSelectedCount = 0;
     let missingCount = 0;
-
+    
     Object.keys(dictionaries).forEach(stmt => {
-      const stmtPossible = possibleData?.[stmt] || {};
-      const stmtSelected = selectedPossible[stmt] || {};
-
       dictionaries[stmt].forEach(item => {
-        if (reviewData[stmt]?.[item] !== undefined) {
-          matchedCount++;
-        } else if (stmtPossible[item] !== undefined && stmtSelected[item]) {
-          mergedMappings[stmt][item] = stmtPossible[item];
-          possibleSelectedCount++;
-        } else {
-          missingCount++;
-        }
+        if (reviewData[stmt][item] !== undefined) matchedCount++;
+        else missingCount++;
       });
     });
 
     setImportSuccessStats({
       matched: matchedCount,
-      possibleSelected: possibleSelectedCount,
       missing: missingCount,
-      imported: matchedCount + possibleSelectedCount
+      imported: matchedCount
     });
 
-    onImportComplete(mergedMappings, selectedYear);
+    // We do NOT unmount immediately, we show the success message first.
+    // Call the parent to do the actual state updates quietly.
+    onImportComplete(reviewData, selectedYear);
   };
 
   const renderReviewTable = (statementKey, title) => {
     const dict = dictionaries[statementKey];
-    const mappings = reviewData[statementKey] || {};
-    const possibleMappings = possibleData?.[statementKey] || {};
+    const mappings = reviewData[statementKey];
+    const possibleMappings = possibleData[statementKey];
     
     let matched = 0;
     let missing = 0;
@@ -215,7 +173,7 @@ const PDFImporter = ({ availableYears, onImportComplete }) => {
     
     dict.forEach(item => {
       if (mappings[item] !== undefined) matched++;
-      else if (possibleMappings[item] !== undefined) possible++;
+      else if (possibleMappings && possibleMappings[item] !== undefined) possible++;
       else missing++;
     });
 
@@ -248,7 +206,7 @@ const PDFImporter = ({ availableYears, onImportComplete }) => {
               {dict.map(item => {
                 const val = mappings[item];
                 const isMatched = val !== undefined;
-                const possibleVal = possibleMappings[item];
+                const possibleVal = possibleMappings ? possibleMappings[item] : undefined;
                 const isPossible = !isMatched && possibleVal !== undefined;
                 
                 let icon = <span className="status-icon missing"><XCircle size={18}/></span>;
@@ -283,57 +241,6 @@ const PDFImporter = ({ availableYears, onImportComplete }) => {
     );
   };
 
-  const renderPossibleSelectionTable = (statementKey) => {
-    const possibleMappings = possibleData?.[statementKey] || {};
-    const stmtSelected = selectedPossible[statementKey] || {};
-    const possibleEntries = Object.entries(possibleMappings);
-
-    if (possibleEntries.length === 0) {
-      return (
-        <div className="review-tab-content">
-          <p style={{ color: '#94a3b8', textAlign: 'center', padding: '20px' }}>No possible matches for this statement.</p>
-        </div>
-      );
-    }
-
-    return (
-      <div className="review-tab-content">
-        <div className="review-stats">
-          <div className="stat-pill warning">
-            <AlertTriangle size={16} /> {possibleEntries.length} Possible Matches
-          </div>
-        </div>
-        <div className="review-table-container">
-          <table className="review-table">
-            <thead>
-              <tr>
-                <th style={{ textAlign: 'center', width: '60px' }}>Include</th>
-                <th>Line Item</th>
-                <th>Extracted Value</th>
-              </tr>
-            </thead>
-            <tbody>
-              {possibleEntries.map(([fieldName, value]) => (
-                <tr key={fieldName} className={stmtSelected[fieldName] ? 'possible-selected-row' : ''}>
-                  <td style={{ textAlign: 'center' }}>
-                    <input
-                      type="checkbox"
-                      className="possible-checkbox"
-                      checked={!!stmtSelected[fieldName]}
-                      onChange={() => togglePossible(statementKey, fieldName)}
-                    />
-                  </td>
-                  <td>{fieldName}</td>
-                  <td style={{ color: '#fbbf24' }}>{formatAccounting(value)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div className="pdf-importer-container animate-fade-in">
       <div className="pdf-importer-header">
@@ -343,11 +250,8 @@ const PDFImporter = ({ availableYears, onImportComplete }) => {
       {importSuccessStats ? (
         <div className="success-message-panel">
           <h3><CheckCircle size={24} /> PDF processed successfully.</h3>
-          <p><strong>{importSuccessStats.matched + (importSuccessStats.possibleSelected || 0) + importSuccessStats.missing}</strong> total fields analyzed.</p>
+          <p><strong>{importSuccessStats.matched + importSuccessStats.missing}</strong> total fields analyzed.</p>
           <p><strong>{importSuccessStats.matched}</strong> values matched.</p>
-          {importSuccessStats.possibleSelected > 0 && (
-            <p><strong>{importSuccessStats.possibleSelected}</strong> possible values accepted.</p>
-          )}
           <p><strong>{importSuccessStats.imported}</strong> values imported.</p>
           <p><strong>{importSuccessStats.missing}</strong> fields require manual review.</p>
         </div>
@@ -402,36 +306,6 @@ const PDFImporter = ({ availableYears, onImportComplete }) => {
             </button>
           </div>
         </>
-      ) : showPossibleSelection ? (
-        <div className="pdf-review-section animate-fade-in">
-          <h3>Select Possible Matches to Import</h3>
-          <p style={{ color: '#94a3b8', marginBottom: '20px' }}>
-            The following items were partially matched. Select the ones you want to import along with the confirmed matches.
-          </p>
-
-          <div className="statement-tabs">
-            <div className={`statement-tab ${activeTab === 'balanceSheet' ? 'active' : ''}`} onClick={() => setActiveTab('balanceSheet')}>
-              Balance Sheet
-            </div>
-            <div className={`statement-tab ${activeTab === 'incomeStatement' ? 'active' : ''}`} onClick={() => setActiveTab('incomeStatement')}>
-              Income Statement
-            </div>
-            <div className={`statement-tab ${activeTab === 'cashFlowStatement' ? 'active' : ''}`} onClick={() => setActiveTab('cashFlowStatement')}>
-              Cash Flow
-            </div>
-          </div>
-
-          {activeTab === 'balanceSheet' && renderPossibleSelectionTable('balanceSheet')}
-          {activeTab === 'incomeStatement' && renderPossibleSelectionTable('incomeStatement')}
-          {activeTab === 'cashFlowStatement' && renderPossibleSelectionTable('cashFlowStatement')}
-
-          <div className="review-actions">
-            <button className="btn-secondary" onClick={() => setShowPossibleSelection(false)}>Back to Review</button>
-            <button className="btn-primary" onClick={handleConfirm}>
-              Confirm & Import <ChevronRight size={16} />
-            </button>
-          </div>
-        </div>
       ) : (
         <div className="pdf-review-section animate-fade-in">
           <h3>Review Extracted Data</h3>
