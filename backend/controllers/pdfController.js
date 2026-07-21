@@ -1,11 +1,17 @@
-const fs = require("fs");
 const pdf = require("pdf-parse");
 
 exports.readPDF = async (req, res) => {
 
     try {
 
-        const buffer = fs.readFileSync(req.file.path);
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: "No PDF uploaded."
+            });
+        }
+
+        const buffer = req.file.buffer;
 
         const data = await pdf(buffer);
 
@@ -13,60 +19,65 @@ exports.readPDF = async (req, res) => {
 
         const lines = text
             .split("\n")
-            .map(x => x.trim())
-            .filter(x => x !== "");
+            .map(line => line.trim())
+            .filter(line => line !== "");
 
         const items = [];
 
-let description = "";
+        let description = "";
 
-for (const line of lines) {
+        for (const line of lines) {
 
-    const amountOnly = line.match(/^\d+(?:,\d+)?(?:\.\d+)?$/);
+            // Line contains only an amount
+            const amountOnly = line.match(/^\d+(?:,\d+)?(?:\.\d+)?$/);
 
-    if (amountOnly) {
+            if (amountOnly) {
 
-        items.push({
-            description: description.trim(),
-            amount: Number(line.replace(/,/g, ""))
-        });
+                items.push({
+                    description: description.trim(),
+                    amount: Number(line.replace(/,/g, ""))
+                });
 
-        description = "";
+                description = "";
 
-    } else {
+            } else {
 
-        const sameLine = line.match(/^(.*?)(\d+(?:,\d+)?(?:\.\d+)?)$/);
+                // Description followed by amount on the same line
+                const sameLine = line.match(/^(.*?)(\d+(?:,\d+)?(?:\.\d+)?)$/);
 
-        if (sameLine) {
+                if (sameLine) {
 
-            items.push({
-                description: sameLine[1].trim(),
-                amount: Number(sameLine[2].replace(/,/g, ""))
-            });
+                    items.push({
+                        description: sameLine[1].trim(),
+                        amount: Number(sameLine[2].replace(/,/g, ""))
+                    });
 
-            description = "";
+                    description = "";
 
-        } else {
+                } else {
 
-            description += " " + line;
+                    description += " " + line;
+
+                }
+
+            }
 
         }
 
-    }
-
-}
-        res.json({
+        return res.json({
             success: true,
             items
         });
 
     } catch (err) {
 
-        res.status(500).json({
+        console.error("PDF Parse Error:", err);
+
+        return res.status(500).json({
             success: false,
             message: err.message
         });
 
     }
 
-}
+};
