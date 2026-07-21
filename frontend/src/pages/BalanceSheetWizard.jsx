@@ -229,8 +229,20 @@ const BalanceSheetWizard = ({ config, setConfig }) => {
 
     // Fix Bug 1: Translate backend canonical names → wizard line item names via BS_FIELD_MAP.
     const translatedBs = {};
+
+
+ // 1. Direct pass-through: backend keys already equal wizard lineItem names
+    const allBsNames = Object.values(lineItems).flat();
+    for (const name of allBsNames) {
+      if (mappings.balanceSheet[name] !== undefined) {
+        translatedBs[name] = mappings.balanceSheet[name];
+      }
+    }
+
+
+
     for (const [backendKey, wizardKey] of Object.entries(BS_FIELD_MAP)) {
-      if (mappings.balanceSheet[backendKey] !== undefined) {
+       if (translatedBs[wizardKey] === undefined && mappings.balanceSheet[backendKey] !== undefined) {
         translatedBs[wizardKey] = mappings.balanceSheet[backendKey];
       }
     }

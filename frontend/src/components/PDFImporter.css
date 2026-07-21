@@ -1,3 +1,4 @@
+
 .pdf-importer-container {
   background: rgba(30, 41, 59, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -191,4 +192,19 @@
 .success-message-panel p {
   margin: 5px 0;
   color: #e2e8f0;
+}
+
+/* Possible match checkbox */
+.possible-checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: #fbbf24;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.possible-selected-row {
+  background: rgba(251, 191, 36, 0.08) !important;
+}
+.possible-selected-row td {
+  border-bottom-color: rgba(251, 191, 36, 0.15);
 }
